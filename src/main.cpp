@@ -42,16 +42,8 @@ string strEnter() { lo << lt("Enter string") << endl; string result; cin >> resu
 
 // ---
 
-enum PTFromServer : unsigned int
-{
-	Accept
-};
-
-enum PTFromClient : unsigned int
-{
-	Connect,
-	Ping
-};
+enum PTFromServer : unsigned int{Accept};
+enum PTFromClient : unsigned int{Connect, Ping};
 
 template<typename T> class PacketHandler
 {
@@ -65,23 +57,11 @@ template<typename T> class PacketHandler
 			try
 			{
 				auto itr(functionHandlers.find(mType));
-				if(itr == end(functionHandlers))
-				{
-					lo << lt("PacketHandler") << "Can't handle packet of type: " << mType << endl;
-					return;
-				}
-
+				if(itr == end(functionHandlers)) { lo << lt("PacketHandler") << "Can't handle packet of type: " << mType << endl; return; }
 				itr->second(mCaller, mPacket);
 			}
-			catch(std::exception& mException)
-			{
-				lo << "Exception during packet handling: (" << mType << ")" << endl;
-				lo << mException.what() << endl;
-			}
-			catch(...)
-			{
-				lo << "Unknown exception during packet handling: (" << mType << ")" << endl;
-			}
+			catch(std::exception& mException) { lo << "Exception during packet handling: (" << mType << ")" << endl << mException.what() << endl; }
+			catch(...) { lo << "Unknown exception during packet handling: (" << mType << ")" << endl; }
 		}
 
 		HandlerFunc& operator[](unsigned int mType) { return functionHandlers[mType]; }
@@ -111,11 +91,7 @@ struct ClientHandler
 	void accept(const IpAddress& mIp) { ip = mIp; busy = true; }
 	void refreshTimeout() { untilTimeout = 5; }
 	void handle(PTFromClient mType, Packet& mPacket) { packetHandler.handle(mType, *this, mPacket); refreshTimeout(); }
-	void send(Packet mPacket)
-	{
-		if(socket.send(mPacket, ip, port) != Socket::Done)
-			lo << "Clienthandler error sending" << endl;
-	}
+	void send(Packet mPacket) { if(socket.send(mPacket, ip, port) != Socket::Done) lo << "Clienthandler error sending" << endl; }
 };
 
 struct Client
@@ -129,19 +105,8 @@ struct Client
 
 	Client(PacketHandler<Client>& mPacketHandler, const IpAddress& mIp, unsigned short mPort) : packetHandler(mPacketHandler), ip(mIp), port(mPort)
 	{
-		if(socket.bind(mPort) != Socket::Done)
-		{
-			lo << "Error binding socket to port: " << mPort << endl;
-			return;
-		}
-
+		if(socket.bind(mPort) != Socket::Done) { lo << "Error binding socket to port: " << mPort << endl;  return; }
 		socket.setBlocking(true); thread([this]{ run(); }).detach();
-	}
-
-	void send(Packet mPacket)
-	{
-		if(socket.send(mPacket, ip, port) != Socket::Done)
-			lo << "Client error sending" << endl;
 	}
 
 	void run()
@@ -172,15 +137,13 @@ struct Client
 					accepted = true; packet >> uid;
 					lo << "Accepted! uid: " << uid << endl;
 				}
-				else if(accepted)
-				{
-					packetHandler.handle(type, *this, packet);
-				}
+				else if(accepted) packetHandler.handle(type, *this, packet);
 			}
 
 			this_thread::sleep_for(chrono::milliseconds(1));
 		}
 	}
+	void send(Packet mPacket) { if(socket.send(mPacket, ip, port) != Socket::Done) lo << "Client error sending" << endl; }
 };
 
 struct Server
@@ -192,12 +155,7 @@ struct Server
 
 	Server(PacketHandler<ClientHandler>& mPacketHandler, unsigned short mPort) : packetHandler(mPacketHandler), port(mPort)
 	{
-		if(socket.bind(mPort) != Socket::Done)
-		{
-			lo << "Error binding socket to port: " << mPort << endl;
-			return;
-		}
-
+		if(socket.bind(mPort) != Socket::Done) { lo << "Error binding socket to port: " << mPort << endl; return; }
 		socket.setBlocking(true); thread([this]{ run(); }).detach();
 	}
 
@@ -235,8 +193,7 @@ struct Server
 						c->accept(sender);
 						c->refreshTimeout();
 
-						Packet acceptPacket;
-						acceptPacket << PTFromServer::Accept << c->uid;
+						Packet acceptPacket; acceptPacket << PTFromServer::Accept << c->uid;
 						socket.send(acceptPacket, sender, senderPort);
 
 						lo << lt("Server") << "Accepted client (" << c->uid << ")" << endl;
@@ -261,18 +218,13 @@ int main()
 	PacketHandler<ClientHandler> sph;
 	PacketHandler<Client> cph;
 
-	Server(sph, 27015);
+	Server(sph, 1200);
 	this_thread::sleep_for(chrono::milliseconds(100));
-	Client(cph, IpAddress::getLocalAddress(), 27015);
+	Client(cph, IpAddress::getLocalAddress(), 1200);
 
-	while(true)
-	{
-		this_thread::sleep_for(chrono::milliseconds(1));
-	}
+	while(true) { this_thread::sleep_for(chrono::milliseconds(1)); }
 
-	return 0;
-
-	lo << "Welcome to the test UDP chat." << endl;
+	/*lo << "Welcome to the test UDP chat." << endl;
 	lo << "Are you server or client?" << endl;
 
 	switch(choice({"Server", "Client", "Exit"}))
@@ -313,5 +265,5 @@ int main()
 		case 2: return 0;
 	}
 
-	return 0;
+	return 0;*/
 }

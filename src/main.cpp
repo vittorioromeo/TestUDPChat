@@ -323,7 +323,7 @@ int main()
 		lo << lt("Chat message from #" + toStr(uid)) << message << endl;
 	};
 
-	Server s(sph, 27015);
+	/*Server s(sph, 27015);
 	this_thread::sleep_for(chrono::milliseconds(100));
 	Client c(cph, "127.0.0.1", 27015);
 
@@ -338,7 +338,7 @@ int main()
 
 		this_thread::sleep_for(chrono::milliseconds(1));
 	}
-	return 0;
+	return 0;*/
 
 	lo << "Welcome to the test UDP chat." << endl;
 	lo << "Are you server or client?" << endl;
@@ -371,6 +371,13 @@ int main()
 
 			while(true)
 			{
+				string input;
+				if(std::getline(std::cin, input))
+				{
+					Packet clientMsg{buildPacketFromClient<PTFromClient::FCMessage>(c.uid, input)};
+					c.send(clientMsg);
+				}
+
 				this_thread::sleep_for(chrono::milliseconds(1));
 			}
 

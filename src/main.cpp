@@ -323,7 +323,7 @@ int main()
 		lo << lt("Chat message from #" + toStr(uid)) << message << endl;
 	};
 
-	//Server s(sph, 27015);
+	Server s(sph, 27015);
 	this_thread::sleep_for(chrono::milliseconds(100));
 	Client c(cph, "127.0.0.1", 27015);
 

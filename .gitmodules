@@ -1,12 +1,12 @@
 [submodule "extlibs/SSVJsonCpp"]
 	path = extlibs/SSVJsonCpp
-	url = https://github.com/SuperV1234/SSVJsonCpp
+	url = https://github.com/SuperV1234/SSVJsonCpp.git
 [submodule "extlibs/SSVUtils"]
 	path = extlibs/SSVUtils
-	url = https://github.com/SuperV1234/SSVUtils
+	url = https://github.com/SuperV1234/SSVUtils.git
 [submodule "extlibs/SSVStart"]
 	path = extlibs/SSVStart
-	url = https://github.com/SuperV1234/SSVStart
+	url = https://github.com/SuperV1234/SSVStart.git
 [submodule "extlibs/SSVUtilsJson"]
 	path = extlibs/SSVUtilsJson
-	url = https://github.com/SuperV1234/SSVUtilsJson
+	url = https://github.com/SuperV1234/SSVUtilsJson.git

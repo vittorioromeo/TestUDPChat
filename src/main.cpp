@@ -97,22 +97,18 @@ class ClientHandler
 		unsigned int uid;
 		UdpSocket& socket;
 		PacketHandler<ClientHandler>& packetHandler;
-		bool busy{false}; unsigned int untilTimeout{10};
+		bool busy{false}; unsigned int untilTimeout{5};
 		IpAddress clientIp; unsigned short clientPort;
+		std::future<void> runFuture;
 
 	public:
-		ClientHandler(Server& mServer, unsigned int mUid, UdpSocket& mSocket, PacketHandler<ClientHandler>& mPacketHandler)
-			: server(mServer), uid(mUid), socket(mSocket), packetHandler(mPacketHandler) { thread([this]{ run(); }).detach(); }
+		ClientHandler(Server& mServer, unsigned int mUid, UdpSocket& mSocket, PacketHandler<ClientHandler>& mPacketHandler) : server(mServer), uid(mUid), socket(mSocket), packetHandler(mPacketHandler) { }
 
 		void run()
 		{
-			while(true)
+			while(busy)
 			{
-				if(busy)
-				{
-					if(--untilTimeout <= 0) timeout();
-				}
-
+				if(--untilTimeout <= 0) timeout();
 				this_thread::sleep_for(chrono::seconds(1));
 			}
 		}
@@ -126,8 +122,9 @@ class ClientHandler
 			clientIp = mClientIp;
 			clientPort = mClientPort;
 			busy = true;
+			runFuture = std::async(std::launch::async, [this]{ run(); });
 		}
-		void refreshTimeout() { untilTimeout = 10; }
+		void refreshTimeout() { untilTimeout = 5; }
 		void handle(PTFromClient mType, Packet& mPacket)
 		{
 			refreshTimeout();
@@ -136,9 +133,9 @@ class ClientHandler
 		}
 		void send(Packet mPacket) { if(socket.send(mPacket, clientIp, clientPort) != Socket::Done) lo << lt("ClientHandler #" + toStr(uid)) << "Error sending" << endl; }
 
-		bool isBusy() const { return busy; }
-		unsigned int getUid() const { return uid; }
-		Server& getServer() { return server; }
+		bool isBusy() const			{ return busy; }
+		unsigned int getUid() const	{ return uid; }
+		Server& getServer()			{ return server; }
 };
 
 struct Client
@@ -146,16 +143,21 @@ struct Client
 	PacketHandler<Client>& packetHandler;
 	IpAddress serverIp; unsigned short serverPort;
 	UdpSocket socket;
+	std::future<void> runFuture;
 
-	bool accepted{false};
+	bool accepted{false}, busy{false};
 	unsigned int uid;
 	float pingTime{0.f};
 
 	Client(PacketHandler<Client>& mPacketHandler, const IpAddress& mServerIp, unsigned short mServerPort) : packetHandler(mPacketHandler), serverIp(mServerIp), serverPort(mServerPort)
 	{
 		if(socket.bind(serverPort) != Socket::Done) { lo << lt("Client") << "Error binding socket to port: " << serverPort << endl; /*return;*/ }
-		socket.setBlocking(false); thread([this]{ run(); }).detach();
+		socket.setBlocking(false);
+
+		busy = true;
+		runFuture = std::async(std::launch::async, [this]{ run(); });
 	}
+	~Client() { busy = false; }
 
 	void sendConnectionRequest()
 	{
@@ -173,7 +175,7 @@ struct Client
 		lo << lt("Client") << "Client starting on ip: " << serverIp << " and port: " << serverPort << endl;
 		lo << lt("Client") << "Client trying to connect!" << endl;
 
-		while(true)
+		while(busy)
 		{
 			if(!accepted) { sendConnectionRequest(); this_thread::sleep_for(chrono::seconds(1)); }
 
@@ -215,12 +217,18 @@ struct Server
 	UdpSocket socket;
 	unsigned short port;
 	unsigned int lastUid{0};
+	std::future<void> runFuture;
+	bool busy{false};
 
 	Server(PacketHandler<ClientHandler>& mPacketHandler, unsigned short mPort) : packetHandler(mPacketHandler), port(mPort)
 	{
 		if(socket.bind(port) != Socket::Done) { lo << lt("Server") << "Error binding socket to port: " << port << endl; return; }
-		thread([this]{ run(); }).detach();
+		socket.setBlocking(false);
+
+		busy = true;
+		runFuture = std::async(std::launch::async, [this]{ run(); });
 	}
+	~Server() { busy = false; }
 
 	void growIfNeeded()
 	{
@@ -256,7 +264,7 @@ struct Server
 	{
 		lo << lt("Server") << "Starting on port: " << port << endl;
 
-		while(true)
+		while(busy)
 		{
 			Packet clientPacket; IpAddress clientIp; unsigned short clientPort;
 			if(socket.receive(clientPacket, clientIp, clientPort) == Socket::Done)
@@ -332,6 +340,7 @@ int main()
 		string input;
 		if(std::getline(std::cin, input))
 		{
+			if(input == "exit") break;
 			Packet clientMsg{buildPacketFromClient<PTFromClient::FCMessage>(c.uid, input)};
 			c.send(clientMsg);
 		}

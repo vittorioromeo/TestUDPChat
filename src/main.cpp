@@ -59,7 +59,7 @@ template<PTFromClient TType, typename... TArgs> Packet buildPacketFromClient(TAr
 template<typename T> class PacketHandler
 {
 	private:
-		using HandlerFunc = std::function<void(T&, Packet&)>;
+		using HandlerFunc = ssvu::Func<void(T&, Packet&)>;
 		std::unordered_map<unsigned int, HandlerFunc> functionHandlers;
 
 	public:

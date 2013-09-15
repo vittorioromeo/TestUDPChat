@@ -45,7 +45,6 @@ target_link_libraries(${PROJECT_NAME} ${SFML_GRAPHICS_LIBRARY})
 target_link_libraries(${PROJECT_NAME} ${SFML_WINDOW_LIBRARY})
 target_link_libraries(${PROJECT_NAME} ${SFML_SYSTEM_LIBRARY})
 target_link_libraries(${PROJECT_NAME} ${SFML_NETWORK_LIBRARY})
-target_link_libraries(${PROJECT_NAME} ${SSVJSONCPP_LIBRARY})
 
 if(UNIX)
 	install(TARGETS TestUDPChat RUNTIME DESTINATION /usr/local/games/TestUDPChat/)

@@ -48,7 +48,7 @@ enum PTFromServer : unsigned int{Accept, FSMessage};
 enum PTFromClient : unsigned int{Connect, Ping, FCMessage};
 
 template<typename TArg> void buildPacketHelper(Packet& mPacket, TArg&& mArg) { mPacket << mArg; }
-template<typename TArg, typename... TArgs> void buildPacketHelper(Packet& mPacket, TArg&& mArg, TArgs&&... mArgs) { mPacket << mArg; buildPacketHelper(mPacket, std::forward<TArgs>(mArgs)...); }
+template<typename TArg, typename... TArgs> void buildPacketHelper(Packet& mPacket, TArg&& mArg, TArgs&&... mArgs) { buildPacketHelper(mPacket, mArg); buildPacketHelper(mPacket, std::forward<TArgs>(mArgs)...); }
 
 template<PTFromServer TType> Packet buildPacketFromServer()										{ Packet result; result << PT::FromServer << TType; return result; }
 template<PTFromServer TType, typename... TArgs> Packet buildPacketFromServer(TArgs&&... mArgs)	{ Packet result; result << PT::FromServer << TType; buildPacketHelper(result, std::forward<TArgs>(mArgs)...); return result; }

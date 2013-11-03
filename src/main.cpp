@@ -17,7 +17,6 @@
 
 using namespace std;
 using namespace std::chrono;
-using namespace sf;
 using namespace ssvu;
 using namespace ssvuj;
 using namespace ssvs;
@@ -41,34 +40,47 @@ string strEnter() { lo("Enter string") << endl; string result; cin >> result; re
 
 // ---
 
+using PTType = int;
+using Uid = unsigned int;
+using Port = unsigned short;
+
 bool verbose{true};
 
-enum PT : unsigned int{FromServer, FromClient};
-enum PTFromServer : unsigned int{Accept, FSMessage};
-enum PTFromClient : unsigned int{Connect, Ping, FCMessage};
+enum PT : PTType{FromServer, FromClient};
+enum PTFromServer : PTType{Accept, FSMessage};
+enum PTFromClient : PTType{Connect, Ping, FCMessage};
 
-template<typename TArg> void buildPacketHelper(Packet& mPacket, TArg&& mArg) { mPacket << mArg; }
-template<typename TArg, typename... TArgs> void buildPacketHelper(Packet& mPacket, TArg&& mArg, TArgs&&... mArgs) { buildPacketHelper(mPacket, mArg); buildPacketHelper(mPacket, std::forward<TArgs>(mArgs)...); }
+// TODO: BUG: FIXME: BUG HERE v v v
+inline sf::Packet& operator<<(sf::Packet& mPacket, const PT& mPT)				{ return mPacket << mPT; }
+inline sf::Packet& operator>>(sf::Packet& mPacket, PT& mPT)						{ return mPacket >> mPT; }
+inline sf::Packet& operator<<(sf::Packet& mPacket, const PTFromServer& mPT)		{ return mPacket << mPT; }
+inline sf::Packet& operator>>(sf::Packet& mPacket, PTFromServer& mPT)			{ return mPacket >> mPT; }
+inline sf::Packet& operator<<(sf::Packet& mPacket, const PTFromClient& mPT)		{ return mPacket << mPT; }
+inline sf::Packet& operator>>(sf::Packet& mPacket, PTFromClient& mPT)			{ return mPacket >> mPT; }
 
-template<PTFromServer TType> Packet buildPacketFromServer()										{ Packet result; result << PT::FromServer << TType; return result; }
-template<PTFromServer TType, typename... TArgs> Packet buildPacketFromServer(TArgs&&... mArgs)	{ Packet result; result << PT::FromServer << TType; buildPacketHelper(result, std::forward<TArgs>(mArgs)...); return result; }
+namespace Internal
+{
+	template<typename T> inline void appendToPacket(sf::Packet& mPacket, T&& mArg) { mPacket << std::forward<T>(mArg); }
+	template<typename T, typename... TArgs> inline void appendToPacket(sf::Packet& mPacket, T&& mArg, TArgs&&... mArgs) { appendToPacket(mPacket, std::forward<T>(mArg)); appendToPacket(mPacket, std::forward<TArgs>(mArgs)...); }
+	template<PTType TP, typename... TArgs> inline sf::Packet buildPacket(TArgs&&... mArgs) { sf::Packet result; appendToPacket(result, TP, std::forward<TArgs>(mArgs)...); return result; }
+}
 
-template<PTFromClient TType> Packet buildPacketFromClient()										{ Packet result; result << PT::FromClient << TType; return result; }
-template<PTFromClient TType, typename... TArgs> Packet buildPacketFromClient(TArgs&&... mArgs)	{ Packet result; result << PT::FromClient << TType; buildPacketHelper(result, std::forward<TArgs>(mArgs)...); return result; }
+template<PTFromServer TP, typename... TArgs> inline sf::Packet buildPacketFromServer(TArgs&&... mArgs)	{ return ::Internal::buildPacket<PT::FromServer>(TP, std::forward<TArgs>(mArgs)...); }
+template<PTFromClient TP, typename... TArgs> inline sf::Packet buildPacketFromClient(TArgs&&... mArgs)	{ return ::Internal::buildPacket<PT::FromClient>(TP, std::forward<TArgs>(mArgs)...); }
 
 template<typename T> class PacketHandler
 {
 	private:
-		using HandlerFunc = ssvu::Func<void(T&, Packet&)>;
-		std::unordered_map<unsigned int, HandlerFunc> functionHandlers;
+		using HandlerFunc = ssvu::Func<void(T&, sf::Packet&)>;
+		std::unordered_map<PTType, HandlerFunc> handlerFuncs;
 
 	public:
-		void handle(unsigned int mType, T& mCaller, Packet& mPacket)
+		inline void handle(PTType mType, T& mCaller, sf::Packet& mPacket)
 		{
 			try
 			{
-				auto itr(functionHandlers.find(mType));
-				if(itr == end(functionHandlers))
+				auto itr(handlerFuncs.find(mType));
+				if(itr == end(handlerFuncs))
 				{
 					if(verbose) lo("PacketHandler") << "Can't handle packet of type: " << mType << endl;
 					return;
@@ -85,229 +97,239 @@ template<typename T> class PacketHandler
 			}
 		}
 
-		HandlerFunc& operator[](unsigned int mType) { return functionHandlers[mType]; }
+		HandlerFunc& operator[](PTType mType) noexcept { return handlerFuncs[mType]; }
 };
 
 struct Server;
 
 class ClientHandler
 {
+	// A ClientHandler is a child object of a Server which deals with a specific Client
+	// It can be attached to a Client (has an accepted Client) or not (free and ready to accept a Client)
+
 	private:
+		static constexpr int timeoutMax{5};
 		Server& server;
-		unsigned int uid;
-		UdpSocket& socket;
+		Uid uid;
+		sf::UdpSocket& socket;
 		PacketHandler<ClientHandler>& packetHandler;
-		bool busy{false}; unsigned int untilTimeout{5};
-		IpAddress clientIp; unsigned short clientPort;
+		sf::IpAddress clientIp; Port clientPort;
 		std::future<void> runFuture;
+		bool attachedToClient{false};
+		int timeoutUntil{timeoutMax};
 
 	public:
-		ClientHandler(Server& mServer, unsigned int mUid, UdpSocket& mSocket, PacketHandler<ClientHandler>& mPacketHandler) : server(mServer), uid(mUid), socket(mSocket), packetHandler(mPacketHandler) { }
+		ClientHandler(Server& mServer, Uid mUid, sf::UdpSocket& mSocket, PacketHandler<ClientHandler>& mPacketHandler) : server(mServer), uid(mUid), socket(mSocket), packetHandler(mPacketHandler) { }
 
-		void run()
+		inline void accept(const sf::IpAddress& mClientIp, Port mClientPort)
 		{
-			while(busy)
+			// Accepts a Client: sets attachedToClient to true and starts a new thread
+
+			clientIp = mClientIp; clientPort = mClientPort; attachedToClient = true;
+			runFuture = std::async(std::launch::async, [this]
 			{
-				if(--untilTimeout <= 0) timeout();
-				this_thread::sleep_for(chrono::seconds(1));
-			}
-		}
-		void timeout()
-		{
-			busy = false;
-			lo("ClientHandler #" + toStr(uid)) << "Timed out" << endl;
-		}
-		void accept(const IpAddress& mClientIp, unsigned short mClientPort)
-		{
-			clientIp = mClientIp;
-			clientPort = mClientPort;
-			busy = true;
-			runFuture = std::async(std::launch::async, [this]{ run(); });
-		}
-		void refreshTimeout() { untilTimeout = 5; }
-		void handle(PTFromClient mType, Packet& mPacket)
-		{
-			refreshTimeout();
-			if(mType == PTFromClient::Ping) return;
-			packetHandler.handle(mType, *this, mPacket);
-		}
-		void send(Packet mPacket) { if(socket.send(mPacket, clientIp, clientPort) != Socket::Done) lo("ClientHandler #" + toStr(uid)) << "Error sending" << endl; }
+				while(attachedToClient)
+				{
+					if(--timeoutUntil <= 0)
+					{
+						attachedToClient = false;
+						lo("ClientHandler #" + toStr(uid)) << "Timed out" << endl;
+					}
 
-		bool isBusy() const			{ return busy; }
-		unsigned int getUid() const	{ return uid; }
-		Server& getServer()			{ return server; }
+					this_thread::sleep_for(chrono::seconds(1));
+				}
+			});
+		}
+		inline void refreshTimeout() noexcept { timeoutUntil = timeoutMax; }
+		inline void handle(PTFromClient mType, sf::Packet& mPacket)
+		{
+			// Handles a packet from the Client
+
+			refreshTimeout();
+			if(mType != PTFromClient::Ping) packetHandler.handle(mType, *this, mPacket);
+		}
+		inline void sendToClient(sf::Packet mPacket)
+		{
+			// Sends a packet to the Client
+
+			if(socket.send(mPacket, clientIp, clientPort) != sf::Socket::Done)
+				lo("ClientHandler #" + toStr(uid)) << "Error sending" << endl;
+		}
+
+		inline bool isAttachedToClient() const noexcept		{ return attachedToClient; }
+		inline Uid getUid() const noexcept					{ return uid; }
+		inline Server& getServer() noexcept					{ return server; }
 };
 
 struct Client
 {
 	PacketHandler<Client>& packetHandler;
-	IpAddress serverIp; unsigned short serverPort;
-	UdpSocket socket;
+	sf::IpAddress serverIp; Port serverPort;
+	sf::UdpSocket socket;
 	std::future<void> runFuture;
 
 	bool accepted{false}, busy{false};
-	unsigned int uid;
+	Uid uid;
 	float pingTime{0.f};
 
-	Client(PacketHandler<Client>& mPacketHandler, const IpAddress& mServerIp, unsigned short mServerPort) : packetHandler(mPacketHandler), serverIp(mServerIp), serverPort(mServerPort)
+	Client(PacketHandler<Client>& mPacketHandler, const sf::IpAddress& mServerIp, Port mServerPort) : packetHandler(mPacketHandler), serverIp(mServerIp), serverPort(mServerPort)
 	{
-		if(socket.bind(serverPort) != Socket::Done) { lo("Client") << "Error binding socket to port: " << serverPort << endl; /*return;*/ }
+		if(socket.bind(serverPort) != sf::Socket::Done) { lo("Client") << "Error binding socket to port: " << serverPort << endl; /* return; ? */ }
 		socket.setBlocking(false);
 
 		busy = true;
-		runFuture = std::async(std::launch::async, [this]{ run(); });
-	}
-	~Client() { busy = false; }
+		runFuture = std::async(std::launch::async, [this]
+		{
+			lo("Client") << "Ip: " << serverIp << " || port: " << serverPort << " - trying to connect..." << endl;
 
-	void sendConnectionRequest()
-	{
-		Packet pConnect{buildPacketFromClient<PTFromClient::Connect>()};
-		send(pConnect);
+			while(busy)
+			{
+				if(!accepted)
+				{
+					send(buildPacketFromClient<PTFromClient::Connect>());
+					this_thread::sleep_for(chrono::seconds(1));
+				}
+
+				if(--pingTime <= 0.f)
+				{
+					send(buildPacketFromClient<PTFromClient::Ping>(uid));
+					pingTime = 2000.f;
+				}
+
+				sf::Packet senderPacket; sf::IpAddress senderIp; Port senderPort;
+				if(socket.receive(senderPacket, senderIp, senderPort) == sf::Socket::Done)
+				{
+					if(verbose) lo("Client") << "Received packet from " << senderIp << " on port " << senderPort << endl;
+
+					PT from; senderPacket >> from;
+					if(from != PT::FromServer)
+					{
+						if(verbose) lo("Client") << "Packet from " << senderIp << " on port " << senderPort << " not from server, ignoring" << endl;
+					}
+					else
+					{
+						PTFromServer type; senderPacket >> type;
+						if(!accepted && type == PTFromServer::Accept) connectionRequestAccepted(senderPacket);
+						else if(accepted) packetHandler.handle(type, *this, senderPacket);
+					}
+				}
+
+				this_thread::sleep_for(chrono::milliseconds(1));
+			}
+		});
 	}
-	void connectionRequestAccepted(Packet mPacket)
+	~Client() { busy = false; /* runFuture.get(); ? */ }
+
+	inline void connectionRequestAccepted(sf::Packet mPacket)
 	{
 		accepted = true; mPacket >> uid;
 		lo("Client") << "Connected to server! Uid: " << uid << endl;
 	}
 
-	void run()
-	{
-		lo("Client") << "Client starting on ip: " << serverIp << " and port: " << serverPort << endl;
-		lo("Client") << "Client trying to connect!" << endl;
-
-		while(busy)
-		{
-			if(!accepted) { sendConnectionRequest(); this_thread::sleep_for(chrono::seconds(1)); }
-
-			if(pingTime <= 0.f)
-			{
-				Packet pingPacket{buildPacketFromClient<PTFromClient::Ping>(uid)}; send(pingPacket);
-				pingTime = 2000.f;
-			}
-			else --pingTime;
-
-			Packet senderPacket; IpAddress senderIp; unsigned short senderPort;
-			if(socket.receive(senderPacket, senderIp, senderPort) == Socket::Done)
-			{
-				if(verbose) lo("Client") << "Received packet from " << senderIp << " on port " << senderPort << endl;
-
-				unsigned int from; senderPacket >> from;
-				if(from != PT::FromServer)
-				{
-					if(verbose) lo("Client") << "Packet from " << senderIp << " on port " << senderPort << " not from server, ignoring" << endl;
-				}
-				else
-				{
-					unsigned int type; senderPacket >> type;
-					if(!accepted && type == PTFromServer::Accept) connectionRequestAccepted(senderPacket);
-					else if(accepted) packetHandler.handle(type, *this, senderPacket);
-				}
-			}
-
-			this_thread::sleep_for(chrono::milliseconds(1));
-		}
-	}
-	void send(Packet mPacket) { if(socket.send(mPacket, serverIp, serverPort) != Socket::Done) lo("Client") << "Error sending" << endl; }
+	inline void send(sf::Packet mPacket) { if(socket.send(mPacket, serverIp, serverPort) != sf::Socket::Done) lo("Client") << "Error sending" << endl; }
 };
 
 struct Server
 {
 	PacketHandler<ClientHandler>& packetHandler;
 	std::vector<unique_ptr<ClientHandler>> clientHandlers;
-	UdpSocket socket;
-	unsigned short port;
-	unsigned int lastUid{0};
+	sf::UdpSocket socket;
+	Port port;
+	Uid lastUid{0};
 	std::future<void> runFuture;
 	bool busy{false};
 
-	Server(PacketHandler<ClientHandler>& mPacketHandler, unsigned short mPort) : packetHandler(mPacketHandler), port(mPort)
+	Server(PacketHandler<ClientHandler>& mPacketHandler, Port mPort) : packetHandler(mPacketHandler), port(mPort)
 	{
-		if(socket.bind(port) != Socket::Done) { lo("Server") << "Error binding socket to port: " << port << endl; return; }
+		if(socket.bind(port) != sf::Socket::Done) { lo("Server") << "Error binding socket to port: " << port << endl; return; }
 		socket.setBlocking(false);
 
 		busy = true;
-		runFuture = std::async(std::launch::async, [this]{ run(); });
+		runFuture = std::async(std::launch::async, [this]
+		{
+			lo("Server") << "Starting on port: " << port << endl;
+
+			while(busy)
+			{
+				sf::Packet clientPacket; sf::IpAddress clientIp; Port clientPort;
+				if(socket.receive(clientPacket, clientIp, clientPort) == sf::Socket::Done)
+				{
+					if(verbose) lo("Server") << "Received packet from " << clientIp << " on port " << clientPort << endl;
+
+					PT from; clientPacket >> from;
+					if(from != PT::FromClient)
+					{
+						if(verbose) lo("Server") << "Packet from " << clientIp << " on port " << clientPort << " not from client, ignoring" << endl;
+					}
+					else
+					{
+						PTFromClient type; clientPacket >> type;
+						if(verbose) lo("Server") << "...packet type " << type << endl;
+						if(type == PTFromClient::Connect) acceptConnection(clientIp, clientPort);
+						else
+						{
+							Uid chUid; clientPacket >> chUid;
+							makeClientHandlerHandle(chUid, type, clientPacket);
+						}
+					}
+				}
+
+				this_thread::sleep_for(chrono::milliseconds(1));
+			}
+		});
 	}
 	~Server() { busy = false; }
 
-	void growIfNeeded()
+	inline void grow()
 	{
-		if(containsAnyIf(clientHandlers, [](const unique_ptr<ClientHandler>& mCH){ return !mCH->isBusy(); })) return;
 		lo("Server") << "Creating new client handlers" << endl;
 		for(int i{0}; i < 10; ++i) clientHandlers.emplace_back(new ClientHandler{*this, lastUid++, socket, packetHandler});
 	}
 
-	void acceptConnection(const IpAddress& mClientIp, unsigned short mClientPort)
+	inline void acceptConnection(const sf::IpAddress& mClientIp, Port mClientPort)
 	{
-		growIfNeeded();
+		bool foundNotBusy{false};
 
 		for(auto& c : clientHandlers)
 		{
-			if(c->isBusy()) continue;
+			if(c->isAttachedToClient()) continue;
+			foundNotBusy = true;
 
-			Packet acceptPacket{buildPacketFromServer<PTFromServer::Accept>(c->getUid())};
-			if(socket.send(acceptPacket, mClientIp, mClientPort) != Socket::Done)
+			sf::Packet acceptPacket{buildPacketFromServer<PTFromServer::Accept>(c->getUid())};
+			if(socket.send(acceptPacket, mClientIp, mClientPort) != sf::Socket::Done)
 			{
 				lo("Server") << "Error sending accept packet" << endl;
 			}
 			else
 			{
 				lo("Server") << "Accepted client (" << c->getUid() << ")" << endl;
-				c->accept(mClientIp, mClientPort);
-				c->refreshTimeout();
+				c->accept(mClientIp, mClientPort); c->refreshTimeout();
 				break;
 			}
 		}
+
+		if(!foundNotBusy) grow();
 	}
 
-	void run()
+	inline void makeClientHandlerHandle(Uid mUid, PTFromClient mType, sf::Packet mPacket)
 	{
-		lo("Server") << "Starting on port: " << port << endl;
-
-		while(busy)
+		if(mUid >= clientHandlers.size())
 		{
-			Packet clientPacket; IpAddress clientIp; unsigned short clientPort;
-			if(socket.receive(clientPacket, clientIp, clientPort) == Socket::Done)
-			{
-				if(verbose) lo("Server") << "Received packet from " << clientIp << " on port " << clientPort << endl;
-
-				unsigned int from; clientPacket >> from;
-				if(from != PT::FromClient)
-				{
-					if(verbose) lo("Server") << "Packet from " << clientIp << " on port " << clientPort << " not from client, ignoring" << endl;
-				}
-				else
-				{
-					unsigned int type; clientPacket >> (type);
-					if(type == PTFromClient::Connect) acceptConnection(clientIp, clientPort);
-					else
-					{
-						unsigned int chUid; clientPacket >> chUid;
-						makeClientHandlerHandle(chUid, type, clientPacket);
-					}
-				}
-			}
-
-			this_thread::sleep_for(chrono::milliseconds(1));
+			if(verbose) lo("Server") << "Tried to make ClientHandler #" << mUid << " handle packet of type " << mType << " but it does not exist " << endl;
 		}
-	}
-
-	void makeClientHandlerHandle(unsigned int mUid, unsigned int mType, Packet mPacket)
-	{
-		if(mUid >= clientHandlers.size() || !clientHandlers[mUid]->isBusy())
+		else if(!clientHandlers[mUid]->isAttachedToClient())
 		{
 			if(verbose) lo("Server") << "Tried to make ClientHandler #" << mUid << " handle packet of type " << mType << " but it's not busy " << endl;
-			return;
 		}
-		clientHandlers[mUid]->handle(static_cast<PTFromClient>(mType), mPacket);
+		else clientHandlers[mUid]->handle(mType, mPacket);
 	}
-	void makeAllClientHandlersHandle(unsigned int mType, Packet mPacket)
+	inline void makeAllClientHandlersHandle(PTFromClient mType, sf::Packet mPacket)
 	{
-		for(auto& c : clientHandlers) if(!c->isBusy()) c->handle(static_cast<PTFromClient>(mType), mPacket);
+		for(auto& c : clientHandlers) if(c->isAttachedToClient()) c->handle(mType, mPacket);
 	}
-	void sendToAllClients(Packet mPacket)
+	inline void sendToAllClients(sf::Packet mPacket)
 	{
-		for(auto& c : clientHandlers) if(c->isBusy()) c->send(mPacket);
+		for(auto& c : clientHandlers) if(c->isAttachedToClient()) c->sendToClient(mPacket);
 	}
 };
 
@@ -316,17 +338,17 @@ struct Server
 int main()
 {
 	PacketHandler<ClientHandler> sph;
-	sph[PTFromClient::FCMessage] = [](ClientHandler& mCH, Packet& mP)
+	sph[PTFromClient::FCMessage] = [](ClientHandler& mCH, sf::Packet& mP)
 	{
 		string message; mP >> message;
-		Packet msgPacket{buildPacketFromServer<PTFromServer::FSMessage>(mCH.getUid(), message)};
+		sf::Packet msgPacket{buildPacketFromServer<PTFromServer::FSMessage>(mCH.getUid(), message)};
 		mCH.getServer().sendToAllClients(msgPacket);
 	};
 
 	PacketHandler<Client> cph;
-	cph[PTFromServer::FSMessage] = [](Client&, Packet& mP)
+	cph[PTFromServer::FSMessage] = [](Client&, sf::Packet& mP)
 	{
-		unsigned int uid; string message;
+		Uid uid; string message;
 		mP >> uid >> message;
 		lo("Chat message from #" + toStr(uid)) << message << endl;
 	};
@@ -383,7 +405,7 @@ int main()
 				string input;
 				if(std::getline(std::cin, input))
 				{
-					Packet clientMsg{buildPacketFromClient<PTFromClient::FCMessage>(c.uid, input)};
+					sf::Packet clientMsg{buildPacketFromClient<PTFromClient::FCMessage>(c.uid, input)};
 					c.send(clientMsg);
 				}
 

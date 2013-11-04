@@ -50,13 +50,12 @@ enum PT : PTType{FromServer, FromClient};
 enum PTFromServer : PTType{Accept, FSMessage};
 enum PTFromClient : PTType{Connect, Ping, FCMessage};
 
-// TODO: BUG: FIXME: BUG HERE v v v
-inline sf::Packet& operator<<(sf::Packet& mPacket, const PT& mPT)				{ return mPacket << mPT; }
-inline sf::Packet& operator>>(sf::Packet& mPacket, PT& mPT)						{ return mPacket >> mPT; }
-inline sf::Packet& operator<<(sf::Packet& mPacket, const PTFromServer& mPT)		{ return mPacket << mPT; }
-inline sf::Packet& operator>>(sf::Packet& mPacket, PTFromServer& mPT)			{ return mPacket >> mPT; }
-inline sf::Packet& operator<<(sf::Packet& mPacket, const PTFromClient& mPT)		{ return mPacket << mPT; }
-inline sf::Packet& operator>>(sf::Packet& mPacket, PTFromClient& mPT)			{ return mPacket >> mPT; }
+inline sf::Packet& operator<<(sf::Packet& mPacket, const PT& mPT)				{ return mPacket << PTType(mPT); }
+inline sf::Packet& operator>>(sf::Packet& mPacket, PT& mPT)						{ return mPacket >> reinterpret_cast<PTType&>(mPT); }
+inline sf::Packet& operator<<(sf::Packet& mPacket, const PTFromServer& mPT)		{ return mPacket << PTType(mPT); }
+inline sf::Packet& operator>>(sf::Packet& mPacket, PTFromServer& mPT)			{ return mPacket >> reinterpret_cast<PTType&>(mPT); }
+inline sf::Packet& operator<<(sf::Packet& mPacket, const PTFromClient& mPT)		{ return mPacket << PTType(mPT); }
+inline sf::Packet& operator>>(sf::Packet& mPacket, PTFromClient& mPT)			{ return mPacket >> reinterpret_cast<PTType&>(mPT); }
 
 namespace Internal
 {
@@ -199,18 +198,25 @@ struct Client
 				sf::Packet senderPacket; sf::IpAddress senderIp; Port senderPort;
 				if(socket.receive(senderPacket, senderIp, senderPort) == sf::Socket::Done)
 				{
-					if(verbose) lo("Client") << "Received packet from " << senderIp << " on port " << senderPort << endl;
-
-					PT from; senderPacket >> from;
-					if(from != PT::FromServer)
+					if(senderIp == serverIp && senderPort == serverPort)
 					{
-						if(verbose) lo("Client") << "Packet from " << senderIp << " on port " << senderPort << " not from server, ignoring" << endl;
+						if(verbose) lo("Client") << "Received packet from " << senderIp << " on port " << senderPort << endl;
+
+						PT from; senderPacket >> from;
+						if(from != PT::FromServer)
+						{
+							if(verbose) lo("Client") << "Packet from " << senderIp << " on port " << senderPort << " not from server, ignoring" << endl;
+						}
+						else
+						{
+							PTFromServer type; senderPacket >> type;
+							if(!accepted && type == PTFromServer::Accept) connectionRequestAccepted(senderPacket);
+							else if(accepted) packetHandler.handle(type, *this, senderPacket);
+						}
 					}
 					else
 					{
-						PTFromServer type; senderPacket >> type;
-						if(!accepted && type == PTFromServer::Accept) connectionRequestAccepted(senderPacket);
-						else if(accepted) packetHandler.handle(type, *this, senderPacket);
+						if(verbose) lo("Client") << "Received packet, but not from server" << endl;
 					}
 				}
 
@@ -379,7 +385,7 @@ int main()
 		case 0:
 		{
 			lo << "What port?" << endl;
-			int port{stoi(strEnter())};
+			int port{std::stoi(strEnter())};
 
 			Server s(sph, port);
 
@@ -396,7 +402,7 @@ int main()
 			string ip{strEnter()};
 
 			lo << "What port?" << endl;
-			int port{stoi(strEnter())};
+			int port{std::stoi(strEnter())};
 
 			Client c(cph, ip, port);
 

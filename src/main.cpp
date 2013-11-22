@@ -71,15 +71,15 @@ template<typename T> class PacketHandler
 {
 	private:
 		using HandlerFunc = ssvu::Func<void(T&, sf::Packet&)>;
-		std::unordered_map<PTType, HandlerFunc> handlerFuncs;
+		std::unordered_map<PTType, HandlerFunc> funcs;
 
 	public:
 		inline void handle(PTType mType, T& mCaller, sf::Packet& mPacket)
 		{
 			try
 			{
-				auto itr(handlerFuncs.find(mType));
-				if(itr == end(handlerFuncs))
+				auto itr(funcs.find(mType));
+				if(itr == std::end(funcs))
 				{
 					if(verbose) lo("PacketHandler") << "Can't handle packet of type: " << mType << endl;
 					return;
@@ -96,7 +96,7 @@ template<typename T> class PacketHandler
 			}
 		}
 
-		HandlerFunc& operator[](PTType mType) noexcept { return handlerFuncs[mType]; }
+		HandlerFunc& operator[](PTType mType) noexcept { return funcs[mType]; }
 };
 
 struct Server;

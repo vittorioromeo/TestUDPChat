@@ -26,13 +26,13 @@ int choice(initializer_list<string> mChoices)
 	lo("Choice") << endl;
 
 	auto idx(0u);
-	for(const auto& c : mChoices) { lo << idx << ". " << c << endl; ++idx; }
+	for(const auto& c : mChoices) { lo() << idx << ". " << c << endl; ++idx; }
 
 	int result;
 	while(true)
 	{
 		cin >> result;
-		if(result < 0 || result >= static_cast<int>(mChoices.size())) { lo << "Choice invalid, retry" << endl; continue; }
+		if(result < 0 || result >= static_cast<int>(mChoices.size())) { lo() << "Choice invalid, retry" << endl; continue; }
 		return result;
 	}
 }
@@ -377,14 +377,14 @@ int main()
 	}
 	return 0;*/
 
-	lo << "Welcome to the test UDP chat." << endl;
-	lo << "Are you server or client?" << endl;
+	lo() << "Welcome to the test UDP chat." << endl;
+	lo() << "Are you server or client?" << endl;
 
 	switch(choice({"Server", "Client", "Exit"}))
 	{
 		case 0:
 		{
-			lo << "What port?" << endl;
+			lo() << "What port?" << endl;
 			int port{std::stoi(strEnter())};
 
 			Server s(sph, port);
@@ -398,10 +398,10 @@ int main()
 		}
 		case 1:
 		{
-			lo << "What ip?" << endl;
+			lo() << "What ip?" << endl;
 			string ip{strEnter()};
 
-			lo << "What port?" << endl;
+			lo() << "What port?" << endl;
 			int port{std::stoi(strEnter())};
 
 			Client c(cph, ip, port);

@@ -289,7 +289,7 @@ struct Server
 	inline void grow()
 	{
 		lo("Server") << "Creating new client handlers" << endl;
-		for(int i{0}; i < 10; ++i) clientHandlers.emplace_back(new ClientHandler{*this, lastUid++, socket, packetHandler});
+		for(int i{0}; i < 10; ++i) ssvu::getEmplaceUptr<ClientHandler>(clientHandlers, *this, lastUid++, socket, packetHandler);
 	}
 
 	inline void acceptConnection(const sf::IpAddress& mClientIp, Port mClientPort)

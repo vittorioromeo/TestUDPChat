@@ -238,7 +238,7 @@ struct Client
 struct Server
 {
 	PacketHandler<ClientHandler>& packetHandler;
-	std::vector<unique_ptr<ClientHandler>> clientHandlers;
+	std::vector<ssvu::Uptr<ClientHandler>> clientHandlers;
 	sf::UdpSocket socket;
 	Port port;
 	Uid lastUid{0};

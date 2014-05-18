@@ -4,12 +4,6 @@
 
 #include <thread>
 #include <future>
-#include <chrono>
-#include <functional>
-#include <SFML/Audio.hpp>
-#include <SFML/Graphics.hpp>
-#include <SFML/System.hpp>
-#include <SFML/Window.hpp>
 #include <SFML/Network.hpp>
 #include <SSVUtils/SSVUtils.hpp>
 #include <SSVUtilsJson/SSVUtilsJson.hpp>

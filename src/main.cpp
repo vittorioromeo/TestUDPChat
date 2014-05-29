@@ -232,7 +232,7 @@ struct Client
 struct Server
 {
 	PacketHandler<ClientHandler>& packetHandler;
-	std::vector<ssvu::Uptr<ClientHandler>> clientHandlers;
+	ssvu::VectorUptr<ClientHandler> clientHandlers;
 	sf::UdpSocket socket;
 	Port port;
 	Uid lastUid{0};

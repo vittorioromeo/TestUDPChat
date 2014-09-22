@@ -17,20 +17,20 @@ using namespace ssvs;
 
 int choice(initializer_list<string> mChoices)
 {
-	lo("Choice") << endl;
+	lo("Choice") << "\n";
 
 	auto idx(0u);
-	for(const auto& c : mChoices) { lo() << idx << ". " << c << endl; ++idx; }
+	for(const auto& c : mChoices) { lo() << idx << ". " << c << "\n"; ++idx; }
 
 	int result;
 	while(true)
 	{
 		cin >> result;
-		if(result < 0 || result >= static_cast<int>(mChoices.size())) { lo() << "Choice invalid, retry" << endl; continue; }
+		if(result < 0 || result >= static_cast<int>(mChoices.size())) { lo() << "Choice invalid, retry" << "\n"; continue; }
 		return result;
 	}
 }
-string strEnter() { lo("Enter string") << endl; string result; cin >> result; return result; }
+string strEnter() { lo("Enter string") << "\n"; string result; cin >> result; return result; }
 
 // ---
 
@@ -75,18 +75,18 @@ template<typename T> class PacketHandler
 				auto itr(funcs.find(mType));
 				if(itr == std::end(funcs))
 				{
-					if(verbose) lo("PacketHandler") << "Can't handle packet of type: " << mType << endl;
+					if(verbose) lo("PacketHandler") << "Can't handle packet of type: " << mType << "\n";
 					return;
 				}
 				itr->second(mCaller, mPacket);
 			}
 			catch(std::exception& mException)
 			{
-				lo("PacketHandler") << "Exception during packet handling: (" << mType << ")" << endl << mException.what() << endl;
+				lo("PacketHandler") << "Exception during packet handling: (" << mType << ")\n" << mException.what() << "\n";
 			}
 			catch(...)
 			{
-				lo("PacketHandler") << "Unknown exception during packet handling: (" << mType << ")" << endl;
+				lo("PacketHandler") << "Unknown exception during packet handling: (" << mType << ")\n";
 			}
 		}
 
@@ -126,7 +126,7 @@ class ClientHandler
 					if(--timeoutUntil <= 0)
 					{
 						attachedToClient = false;
-						lo("ClientHandler #" + toStr(uid)) << "Timed out" << endl;
+						lo("ClientHandler #" + toStr(uid)) << "Timed out" << "\n";
 					}
 
 					this_thread::sleep_for(1s);
@@ -146,7 +146,7 @@ class ClientHandler
 			// Sends a packet to the Client
 
 			if(socket.send(mPacket, clientIp, clientPort) != sf::Socket::Done)
-				lo("ClientHandler #" + toStr(uid)) << "Error sending" << endl;
+				lo("ClientHandler #" + toStr(uid)) << "Error sending" << "\n";
 		}
 
 		inline bool isAttachedToClient() const noexcept		{ return attachedToClient; }
@@ -167,13 +167,13 @@ struct Client
 
 	Client(PacketHandler<Client>& mPacketHandler, const sf::IpAddress& mServerIp, Port mServerPort) : packetHandler(mPacketHandler), serverIp(mServerIp), serverPort(mServerPort)
 	{
-		if(socket.bind(serverPort) != sf::Socket::Done) { lo("Client") << "Error binding socket to port: " << serverPort << endl; /* return; ? */ }
+		if(socket.bind(serverPort) != sf::Socket::Done) { lo("Client") << "Error binding socket to port: " << serverPort << "\n"; /* return; ? */ }
 		socket.setBlocking(false);
 
 		busy = true;
 		runFuture = std::async(std::launch::async, [this]
 		{
-			lo("Client") << "Ip: " << serverIp << " || port: " << serverPort << " - trying to connect..." << endl;
+			lo("Client") << "Ip: " << serverIp << " || port: " << serverPort << " - trying to connect...\n";
 
 			while(busy)
 			{
@@ -194,12 +194,12 @@ struct Client
 				{
 					if(senderIp == serverIp && senderPort == serverPort)
 					{
-						if(verbose) lo("Client") << "Received packet from " << senderIp << " on port " << senderPort << endl;
+						if(verbose) lo("Client") << "Received packet from " << senderIp << " on port " << senderPort << "\n";
 
 						PT from; senderPacket >> from;
 						if(from != PT::FromServer)
 						{
-							if(verbose) lo("Client") << "Packet from " << senderIp << " on port " << senderPort << " not from server, ignoring" << endl;
+							if(verbose) lo("Client") << "Packet from " << senderIp << " on port " << senderPort << " not from server, ignoring" << "\n";
 						}
 						else
 						{
@@ -210,7 +210,7 @@ struct Client
 					}
 					else
 					{
-						if(verbose) lo("Client") << "Received packet, but not from server" << endl;
+						if(verbose) lo("Client") << "Received packet, but not from server" << "\n";
 					}
 				}
 
@@ -223,10 +223,10 @@ struct Client
 	inline void connectionRequestAccepted(sf::Packet mPacket)
 	{
 		accepted = true; mPacket >> uid;
-		lo("Client") << "Connected to server! Uid: " << uid << endl;
+		lo("Client") << "Connected to server! Uid: " << uid << "\n";
 	}
 
-	inline void send(sf::Packet mPacket) { if(socket.send(mPacket, serverIp, serverPort) != sf::Socket::Done) lo("Client") << "Error sending" << endl; }
+	inline void send(sf::Packet mPacket) { if(socket.send(mPacket, serverIp, serverPort) != sf::Socket::Done) lo("Client") << "Error sending" << "\n"; }
 };
 
 struct Server
@@ -241,30 +241,30 @@ struct Server
 
 	Server(PacketHandler<ClientHandler>& mPacketHandler, Port mPort) : packetHandler(mPacketHandler), port(mPort)
 	{
-		if(socket.bind(port) != sf::Socket::Done) { lo("Server") << "Error binding socket to port: " << port << endl; return; }
+		if(socket.bind(port) != sf::Socket::Done) { lo("Server") << "Error binding socket to port: " << port << "\n"; return; }
 		socket.setBlocking(false);
 
 		busy = true;
 		runFuture = std::async(std::launch::async, [this]
 		{
-			lo("Server") << "Starting on port: " << port << endl;
+			lo("Server") << "Starting on port: " << port << "\n";
 
 			while(busy)
 			{
 				sf::Packet clientPacket; sf::IpAddress clientIp; Port clientPort;
 				if(socket.receive(clientPacket, clientIp, clientPort) == sf::Socket::Done)
 				{
-					if(verbose) lo("Server") << "Received packet from " << clientIp << " on port " << clientPort << endl;
+					if(verbose) lo("Server") << "Received packet from " << clientIp << " on port " << clientPort << "\n";
 
 					PT from; clientPacket >> from;
 					if(from != PT::FromClient)
 					{
-						if(verbose) lo("Server") << "Packet from " << clientIp << " on port " << clientPort << " not from client, ignoring" << endl;
+						if(verbose) lo("Server") << "Packet from " << clientIp << " on port " << clientPort << " not from client, ignoring" << "\n";
 					}
 					else
 					{
 						PTFromClient type; clientPacket >> type;
-						if(verbose) lo("Server") << "...packet type " << type << endl;
+						if(verbose) lo("Server") << "...packet type " << type << "\n";
 						if(type == PTFromClient::Connect) acceptConnection(clientIp, clientPort);
 						else
 						{
@@ -282,7 +282,7 @@ struct Server
 
 	inline void grow()
 	{
-		lo("Server") << "Creating new client handlers" << endl;
+		lo("Server") << "Creating new client handlers" << "\n";
 		for(int i{0}; i < 10; ++i) ssvu::getEmplaceUPtr<ClientHandler>(clientHandlers, *this, lastUid++, socket, packetHandler);
 	}
 
@@ -298,11 +298,11 @@ struct Server
 			sf::Packet acceptPacket{buildPacketFromServer<PTFromServer::Accept>(c->getUid())};
 			if(socket.send(acceptPacket, mClientIp, mClientPort) != sf::Socket::Done)
 			{
-				lo("Server") << "Error sending accept packet" << endl;
+				lo("Server") << "Error sending accept packet" << "\n";
 			}
 			else
 			{
-				lo("Server") << "Accepted client (" << c->getUid() << ")" << endl;
+				lo("Server") << "Accepted client (" << c->getUid() << ")\n";
 				c->accept(mClientIp, mClientPort); c->refreshTimeout();
 				break;
 			}
@@ -315,11 +315,11 @@ struct Server
 	{
 		if(mUid >= clientHandlers.size())
 		{
-			if(verbose) lo("Server") << "Tried to make ClientHandler #" << mUid << " handle packet of type " << mType << " but it does not exist " << endl;
+			if(verbose) lo("Server") << "Tried to make ClientHandler #" << mUid << " handle packet of type " << mType << " but it does not exist \n";
 		}
 		else if(!clientHandlers[mUid]->isAttachedToClient())
 		{
-			if(verbose) lo("Server") << "Tried to make ClientHandler #" << mUid << " handle packet of type " << mType << " but it's not busy " << endl;
+			if(verbose) lo("Server") << "Tried to make ClientHandler #" << mUid << " handle packet of type " << mType << " but it's not busy \n";
 		}
 		else clientHandlers[mUid]->handle(mType, mPacket);
 	}
@@ -350,7 +350,7 @@ int main()
 	{
 		Uid uid; string message;
 		mP >> uid >> message;
-		lo("Chat message from #" + toStr(uid)) << message << endl;
+		lo("Chat message from #" + toStr(uid)) << message << "\n";
 	};
 
 	/*Server s(sph, 27015);
@@ -371,14 +371,14 @@ int main()
 	}
 	return 0;*/
 
-	lo() << "Welcome to the test UDP chat." << endl;
-	lo() << "Are you server or client?" << endl;
+	lo() << "Welcome to the test UDP chat.\n";
+	lo() << "Are you server or client?\n";
 
 	switch(choice({"Server", "Client", "Exit"}))
 	{
 		case 0:
 		{
-			lo() << "What port?" << endl;
+			lo() << "What port?\n";
 			int port{std::stoi(strEnter())};
 
 			Server s(sph, port);
@@ -392,10 +392,10 @@ int main()
 		}
 		case 1:
 		{
-			lo() << "What ip?" << endl;
+			lo() << "What ip?\n";
 			string ip{strEnter()};
 
-			lo() << "What port?" << endl;
+			lo() << "What port?\n";
 			int port{std::stoi(strEnter())};
 
 			Client c(cph, ip, port);

@@ -129,7 +129,7 @@ class ClientHandler
 						lo("ClientHandler #" + toStr(uid)) << "Timed out" << endl;
 					}
 
-					this_thread::sleep_for(chrono::seconds(1));
+					this_thread::sleep_for(1s);
 				}
 			});
 		}
@@ -180,7 +180,7 @@ struct Client
 				if(!accepted)
 				{
 					send(buildPacketFromClient<PTFromClient::Connect>());
-					this_thread::sleep_for(chrono::seconds(1));
+					this_thread::sleep_for(1s);
 				}
 
 				if(--pingTime <= 0.f)
@@ -214,7 +214,7 @@ struct Client
 					}
 				}
 
-				this_thread::sleep_for(chrono::milliseconds(1));
+				this_thread::sleep_for(1ms);
 			}
 		});
 	}
@@ -274,7 +274,7 @@ struct Server
 					}
 				}
 
-				this_thread::sleep_for(chrono::milliseconds(1));
+				this_thread::sleep_for(1ms);
 			}
 		});
 	}
@@ -354,7 +354,7 @@ int main()
 	};
 
 	/*Server s(sph, 27015);
-	this_thread::sleep_for(chrono::milliseconds(100));
+	this_thread::sleep_for(100ms);
 	Client c(cph, "127.0.0.1", 27015);
 
 	while(true)
@@ -367,7 +367,7 @@ int main()
 			c.send(clientMsg);
 		}
 
-		this_thread::sleep_for(chrono::milliseconds(1));
+		this_thread::sleep_for(1ms);
 	}
 	return 0;*/
 
@@ -385,7 +385,7 @@ int main()
 
 			while(true)
 			{
-				this_thread::sleep_for(chrono::milliseconds(1));
+				this_thread::sleep_for(1ms);
 			}
 
 			break;
@@ -409,7 +409,7 @@ int main()
 					c.send(clientMsg);
 				}
 
-				this_thread::sleep_for(chrono::milliseconds(1));
+				this_thread::sleep_for(1ms);
 			}
 
 			break;

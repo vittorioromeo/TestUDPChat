@@ -80,9 +80,9 @@ template<typename T> class PacketHandler
 				}
 				itr->second(mCaller, mPacket);
 			}
-			catch(std::exception& mException)
+			catch(std::exception& mEx)
 			{
-				lo("PacketHandler") << "Exception during packet handling: (" << mType << ")\n" << mException.what() << "\n";
+				lo("PacketHandler") << "Exception during packet handling: (" << mType << ")\n" << mEx.what() << "\n";
 			}
 			catch(...)
 			{

@@ -6,13 +6,11 @@
 #include <future>
 #include <SFML/Network.hpp>
 #include <SSVUtils/SSVUtils.hpp>
-#include <SSVUtilsJson/SSVUtilsJson.hpp>
 #include <SSVStart/SSVStart.hpp>
 
 using namespace std;
 using namespace std::chrono;
 using namespace ssvu;
-using namespace ssvuj;
 using namespace ssvs;
 
 int choice(initializer_list<string> mChoices)

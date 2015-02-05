@@ -51,13 +51,13 @@ inline sf::Packet& operator>>(sf::Packet& mPacket, PTFromClient& mPT)			{ return
 
 namespace Impl
 {
-	template<typename T> inline void appendToPacket(sf::Packet& mPacket, T&& mArg) { mPacket << SSVU_FWD(mArg); }
-	template<typename T, typename... TArgs> inline void appendToPacket(sf::Packet& mPacket, T&& mArg, TArgs&&... mArgs) { appendToPacket(mPacket, SSVU_FWD(mArg)); appendToPacket(mPacket, SSVU_FWD(mArgs)...); }
-	template<PTType TP, typename... TArgs> inline sf::Packet buildPacket(TArgs&&... mArgs) { sf::Packet result; appendToPacket(result, TP, SSVU_FWD(mArgs)...); return result; }
+	template<typename T> inline void appendToPacket(sf::Packet& mPacket, T&& mArg) { mPacket << FWD(mArg); }
+	template<typename T, typename... TArgs> inline void appendToPacket(sf::Packet& mPacket, T&& mArg, TArgs&&... mArgs) { appendToPacket(mPacket, FWD(mArg)); appendToPacket(mPacket, FWD(mArgs)...); }
+	template<PTType TP, typename... TArgs> inline sf::Packet buildPacket(TArgs&&... mArgs) { sf::Packet result; appendToPacket(result, TP, FWD(mArgs)...); return result; }
 }
 
-template<PTFromServer TP, typename... TArgs> inline sf::Packet buildPacketFromServer(TArgs&&... mArgs)	{ return ::Impl::buildPacket<PT::FromServer>(TP, SSVU_FWD(mArgs)...); }
-template<PTFromClient TP, typename... TArgs> inline sf::Packet buildPacketFromClient(TArgs&&... mArgs)	{ return ::Impl::buildPacket<PT::FromClient>(TP, SSVU_FWD(mArgs)...); }
+template<PTFromServer TP, typename... TArgs> inline sf::Packet buildPacketFromServer(TArgs&&... mArgs)	{ return ::Impl::buildPacket<PT::FromServer>(TP, FWD(mArgs)...); }
+template<PTFromClient TP, typename... TArgs> inline sf::Packet buildPacketFromClient(TArgs&&... mArgs)	{ return ::Impl::buildPacket<PT::FromClient>(TP, FWD(mArgs)...); }
 
 template<typename T> class PacketHandler
 {

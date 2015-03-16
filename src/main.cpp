@@ -24,7 +24,7 @@ int choice(initializer_list<string> mChoices)
 	while(true)
 	{
 		cin >> result;
-		if(result < 0 || result >= static_cast<int>(mChoices.size())) { lo() << "Choice invalid, retry" << "\n"; continue; }
+		if(result < 0 || result >= ssvu::toInt(mChoices.size())) { lo() << "Choice invalid, retry" << "\n"; continue; }
 		return result;
 	}
 }
@@ -42,12 +42,18 @@ enum PT : PTType{FromServer, FromClient};
 enum PTFromServer : PTType{Accept, FSMessage};
 enum PTFromClient : PTType{Connect, Ping, FCMessage};
 
-inline sf::Packet& operator<<(sf::Packet& mPacket, const PT& mPT)				{ return mPacket << PTType(mPT); }
-inline sf::Packet& operator>>(sf::Packet& mPacket, PT& mPT)						{ return mPacket >> reinterpret_cast<PTType&>(mPT); }
-inline sf::Packet& operator<<(sf::Packet& mPacket, const PTFromServer& mPT)		{ return mPacket << PTType(mPT); }
-inline sf::Packet& operator>>(sf::Packet& mPacket, PTFromServer& mPT)			{ return mPacket >> reinterpret_cast<PTType&>(mPT); }
-inline sf::Packet& operator<<(sf::Packet& mPacket, const PTFromClient& mPT)		{ return mPacket << PTType(mPT); }
-inline sf::Packet& operator>>(sf::Packet& mPacket, PTFromClient& mPT)			{ return mPacket >> reinterpret_cast<PTType&>(mPT); }
+template<typename T> inline auto operator<<(sf::Packet& mPacket, const T& mPT)
+	-> ssvu::EnableIf<ssvu::isEnum<ssvu::RmAll<T>>(), sf::Packet&>
+{
+	return mPacket << ssvu::castEnum(mPT);
+}
+
+template<typename T> inline auto operator>>(sf::Packet& mPacket, T& mPT)
+	-> ssvu::EnableIf<ssvu::isEnum<ssvu::RmAll<T>>(), sf::Packet&>
+{
+	// TODO: avoid this reinterpret_cast somehow
+	mP >> reinterpret_cast<ssvu::Underlying<T>&>(mX);
+}
 
 namespace Impl
 {

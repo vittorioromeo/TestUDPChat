@@ -42,19 +42,6 @@ enum PT : PTType{FromServer, FromClient};
 enum PTFromServer : PTType{Accept, FSMessage};
 enum PTFromClient : PTType{Connect, Ping, FCMessage};
 
-template<typename T> inline auto operator<<(sf::Packet& mPacket, const T& mPT)
-	-> ssvu::EnableIf<ssvu::isEnum<ssvu::RmAll<T>>(), sf::Packet&>
-{
-	return mPacket << ssvu::castEnum(mPT);
-}
-
-template<typename T> inline auto operator>>(sf::Packet& mPacket, T& mPT)
-	-> ssvu::EnableIf<ssvu::isEnum<ssvu::RmAll<T>>(), sf::Packet&>
-{
-	// TODO: avoid this reinterpret_cast somehow
-	mP >> reinterpret_cast<ssvu::Underlying<T>&>(mX);
-}
-
 namespace Impl
 {
 	template<typename T> inline void appendToPacket(sf::Packet& mPacket, T&& mArg) { mPacket << FWD(mArg); }

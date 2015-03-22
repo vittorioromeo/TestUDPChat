@@ -370,7 +370,7 @@ int main()
 		case 0:
 		{
 			lo() << "What port?\n";
-			int port{std::stoi(strEnter())};
+			int port{ssvu::sToInt(strEnter())};
 
 			Server s(sph, port);
 
@@ -387,7 +387,7 @@ int main()
 			string ip{strEnter()};
 
 			lo() << "What port?\n";
-			int port{std::stoi(strEnter())};
+			int port{ssvu::sToInt(strEnter())};
 
 			Client c(cph, ip, port);
 

@@ -152,7 +152,7 @@ struct Client
 	sf::UdpSocket socket;
 	std::future<void> runFuture;
 
-	bool accepted{false}, busy{false};
+	std::atomic<bool> accepted{false}, busy{false};
 	Uid uid;
 	float pingTime{0.f};
 
@@ -228,7 +228,7 @@ struct Server
 	Port port;
 	Uid lastUid{0};
 	std::future<void> runFuture;
-	bool busy{false};
+	std::atomic<bool> busy{false};
 
 	Server(PacketHandler<ClientHandler>& mPacketHandler, Port mPort) : packetHandler(mPacketHandler), port(mPort)
 	{

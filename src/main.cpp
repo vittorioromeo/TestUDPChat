@@ -18,15 +18,18 @@ int choice(initializer_list<string> mChoices)
     lo("Choice") << "\n";
 
     auto idx(0u);
-    for(const auto& c : mChoices) {
+    for(const auto& c : mChoices)
+    {
         lo() << idx << ". " << c << "\n";
         ++idx;
     }
 
     int result;
-    while(true) {
+    while(true)
+    {
         cin >> result;
-        if(result < 0 || result >= ssvu::toInt(mChoices.size())) {
+        if(result < 0 || result >= ssvu::toInt(mChoices.size()))
+        {
             lo() << "Choice invalid, retry"
                  << "\n";
             continue;
@@ -69,24 +72,24 @@ enum PTFromClient : PTType
 
 namespace Impl
 {
-template <typename T>
-inline void appendToPacket(sf::Packet& mPacket, T&& mArg)
-{
-    mPacket << FWD(mArg);
-}
-template <typename T, typename... TArgs>
-inline void appendToPacket(sf::Packet& mPacket, T&& mArg, TArgs&&... mArgs)
-{
-    appendToPacket(mPacket, FWD(mArg));
-    appendToPacket(mPacket, FWD(mArgs)...);
-}
-template <PTType TP, typename... TArgs>
-inline sf::Packet buildPacket(TArgs&&... mArgs)
-{
-    sf::Packet result;
-    appendToPacket(result, TP, FWD(mArgs)...);
-    return result;
-}
+    template <typename T>
+    inline void appendToPacket(sf::Packet& mPacket, T&& mArg)
+    {
+        mPacket << FWD(mArg);
+    }
+    template <typename T, typename... TArgs>
+    inline void appendToPacket(sf::Packet& mPacket, T&& mArg, TArgs&&... mArgs)
+    {
+        appendToPacket(mPacket, FWD(mArg));
+        appendToPacket(mPacket, FWD(mArgs)...);
+    }
+    template <PTType TP, typename... TArgs>
+    inline sf::Packet buildPacket(TArgs&&... mArgs)
+    {
+        sf::Packet result;
+        appendToPacket(result, TP, FWD(mArgs)...);
+        return result;
+    }
 }
 
 template <PTFromServer TP, typename... TArgs>
@@ -113,10 +116,11 @@ public:
         try
         {
             auto itr(funcs.find(mType));
-            if(itr == std::end(funcs)) {
+            if(itr == std::end(funcs))
+            {
                 if(verbose)
                     lo("PacketHandler")
-                    << "Can't handle packet of type: " << mType << "\n";
+                        << "Can't handle packet of type: " << mType << "\n";
                 return;
             }
             itr->second(mCaller, mPacket);
@@ -159,7 +163,7 @@ private:
 
 public:
     ClientHandler(Server& mServer, Uid mUid, sf::UdpSocket& mSocket,
-    PacketHandler<ClientHandler>& mPacketHandler)
+        PacketHandler<ClientHandler>& mPacketHandler)
         : server(mServer), uid(mUid), socket(mSocket),
           packetHandler(mPacketHandler)
     {
@@ -174,17 +178,19 @@ public:
         clientPort = mClientPort;
         attachedToClient = true;
         runFuture = std::async(std::launch::async, [this]
-        {
-            while(attachedToClient) {
-                if(--timeoutUntil <= 0) {
-                    attachedToClient = false;
-                    lo("ClientHandler #" + toStr(uid)) << "Timed out"
-                                                       << "\n";
-                }
+            {
+                while(attachedToClient)
+                {
+                    if(--timeoutUntil <= 0)
+                    {
+                        attachedToClient = false;
+                        lo("ClientHandler #" + toStr(uid)) << "Timed out"
+                                                           << "\n";
+                    }
 
-                this_thread::sleep_for(1s);
-            }
-        });
+                    this_thread::sleep_for(1s);
+                }
+            });
     }
     inline void refreshTimeout() noexcept { timeoutUntil = timeoutMax; }
     inline void handle(PTFromClient mType, sf::Packet& mPacket)
@@ -222,11 +228,12 @@ struct Client
     float pingTime{0.f};
 
     Client(PacketHandler<Client>& mPacketHandler,
-    const sf::IpAddress& mServerIp, Port mServerPort)
+        const sf::IpAddress& mServerIp, Port mServerPort)
         : packetHandler(mPacketHandler), serverIp(mServerIp),
           serverPort(mServerPort)
     {
-        if(socket.bind(serverPort) != sf::Socket::Done) {
+        if(socket.bind(serverPort) != sf::Socket::Done)
+        {
             lo("Client") << "Error binding socket to port: " << serverPort
                          << "\n"; /* return; ? */
         }
@@ -234,63 +241,70 @@ struct Client
 
         busy = true;
         runFuture = std::async(std::launch::async, [this]
-        {
-            lo("Client") << "Ip: " << serverIp << " || port: " << serverPort
-                         << " - trying to connect...\n";
+            {
+                lo("Client") << "Ip: " << serverIp << " || port: " << serverPort
+                             << " - trying to connect...\n";
 
-            while(busy) {
-                if(!accepted) {
-                    send(buildPacketFromClient<PTFromClient::Connect>());
-                    this_thread::sleep_for(1s);
-                }
-
-                if(--pingTime <= 0.f) {
-                    send(buildPacketFromClient<PTFromClient::Ping>(uid));
-                    pingTime = 2000.f;
-                }
-
-                sf::Packet senderPacket;
-                sf::IpAddress senderIp;
-                Port senderPort;
-                if(socket.receive(senderPacket, senderIp, senderPort) ==
-                   sf::Socket::Done)
+                while(busy)
                 {
-                    if(senderIp == serverIp && senderPort == serverPort) {
-                        if(verbose)
-                            lo("Client") << "Received packet from " << senderIp
-                                         << " on port " << senderPort << "\n";
+                    if(!accepted)
+                    {
+                        send(buildPacketFromClient<PTFromClient::Connect>());
+                        this_thread::sleep_for(1s);
+                    }
 
-                        PT from;
-                        senderPacket >> from;
-                        if(from != PT::FromServer) {
+                    if(--pingTime <= 0.f)
+                    {
+                        send(buildPacketFromClient<PTFromClient::Ping>(uid));
+                        pingTime = 2000.f;
+                    }
+
+                    sf::Packet senderPacket;
+                    sf::IpAddress senderIp;
+                    Port senderPort;
+                    if(socket.receive(senderPacket, senderIp, senderPort) ==
+                        sf::Socket::Done)
+                    {
+                        if(senderIp == serverIp && senderPort == serverPort)
+                        {
                             if(verbose)
-                                lo("Client") << "Packet from " << senderIp
-                                             << " on port " << senderPort
-                                             << " not from server, ignoring"
-                                             << "\n";
+                                lo("Client") << "Received packet from "
+                                             << senderIp << " on port "
+                                             << senderPort << "\n";
+
+                            PT from;
+                            senderPacket >> from;
+                            if(from != PT::FromServer)
+                            {
+                                if(verbose)
+                                    lo("Client") << "Packet from " << senderIp
+                                                 << " on port " << senderPort
+                                                 << " not from server, ignoring"
+                                                 << "\n";
+                            }
+                            else
+                            {
+                                PTFromServer type;
+                                senderPacket >> type;
+                                if(!accepted && type == PTFromServer::Accept)
+                                    connectionRequestAccepted(senderPacket);
+                                else if(accepted)
+                                    packetHandler.handle(
+                                        type, *this, senderPacket);
+                            }
                         }
                         else
                         {
-                            PTFromServer type;
-                            senderPacket >> type;
-                            if(!accepted && type == PTFromServer::Accept)
-                                connectionRequestAccepted(senderPacket);
-                            else if(accepted)
-                                packetHandler.handle(type, *this, senderPacket);
+                            if(verbose)
+                                lo("Client")
+                                    << "Received packet, but not from server"
+                                    << "\n";
                         }
                     }
-                    else
-                    {
-                        if(verbose)
-                            lo("Client")
-                            << "Received packet, but not from server"
-                            << "\n";
-                    }
-                }
 
-                this_thread::sleep_for(1ms);
-            }
-        });
+                    this_thread::sleep_for(1ms);
+                }
+            });
     }
     ~Client() { busy = false; /* runFuture.get(); ? */ }
 
@@ -322,7 +336,8 @@ struct Server
     Server(PacketHandler<ClientHandler>& mPacketHandler, Port mPort)
         : packetHandler(mPacketHandler), port(mPort)
     {
-        if(socket.bind(port) != sf::Socket::Done) {
+        if(socket.bind(port) != sf::Socket::Done)
+        {
             lo("Server") << "Error binding socket to port: " << port << "\n";
             return;
         }
@@ -330,49 +345,53 @@ struct Server
 
         busy = true;
         runFuture = std::async(std::launch::async, [this]
-        {
-            lo("Server") << "Starting on port: " << port << "\n";
+            {
+                lo("Server") << "Starting on port: " << port << "\n";
 
-            while(busy) {
-                sf::Packet clientPacket;
-                sf::IpAddress clientIp;
-                Port clientPort;
-                if(socket.receive(clientPacket, clientIp, clientPort) ==
-                   sf::Socket::Done)
+                while(busy)
                 {
-                    if(verbose)
-                        lo("Server") << "Received packet from " << clientIp
-                                     << " on port " << clientPort << "\n";
-
-                    PT from;
-                    clientPacket >> from;
-                    if(from != PT::FromClient) {
-                        if(verbose)
-                            lo("Server") << "Packet from " << clientIp
-                                         << " on port " << clientPort
-                                         << " not from client, ignoring"
-                                         << "\n";
-                    }
-                    else
+                    sf::Packet clientPacket;
+                    sf::IpAddress clientIp;
+                    Port clientPort;
+                    if(socket.receive(clientPacket, clientIp, clientPort) ==
+                        sf::Socket::Done)
                     {
-                        PTFromClient type;
-                        clientPacket >> type;
                         if(verbose)
-                            lo("Server") << "...packet type " << type << "\n";
-                        if(type == PTFromClient::Connect)
-                            acceptConnection(clientIp, clientPort);
+                            lo("Server") << "Received packet from " << clientIp
+                                         << " on port " << clientPort << "\n";
+
+                        PT from;
+                        clientPacket >> from;
+                        if(from != PT::FromClient)
+                        {
+                            if(verbose)
+                                lo("Server") << "Packet from " << clientIp
+                                             << " on port " << clientPort
+                                             << " not from client, ignoring"
+                                             << "\n";
+                        }
                         else
                         {
-                            Uid chUid;
-                            clientPacket >> chUid;
-                            makeClientHandlerHandle(chUid, type, clientPacket);
+                            PTFromClient type;
+                            clientPacket >> type;
+                            if(verbose)
+                                lo("Server") << "...packet type " << type
+                                             << "\n";
+                            if(type == PTFromClient::Connect)
+                                acceptConnection(clientIp, clientPort);
+                            else
+                            {
+                                Uid chUid;
+                                clientPacket >> chUid;
+                                makeClientHandlerHandle(
+                                    chUid, type, clientPacket);
+                            }
                         }
                     }
-                }
 
-                this_thread::sleep_for(1ms);
-            }
-        });
+                    this_thread::sleep_for(1ms);
+                }
+            });
     }
     ~Server() { busy = false; }
 
@@ -382,22 +401,23 @@ struct Server
                      << "\n";
         for(int i{0}; i < 10; ++i)
             ssvu::getEmplaceUPtr<ClientHandler>(
-            clientHandlers, *this, lastUid++, socket, packetHandler);
+                clientHandlers, *this, lastUid++, socket, packetHandler);
     }
 
     inline void acceptConnection(
-    const sf::IpAddress& mClientIp, Port mClientPort)
+        const sf::IpAddress& mClientIp, Port mClientPort)
     {
         bool foundNotBusy{false};
 
-        for(auto& c : clientHandlers) {
+        for(auto& c : clientHandlers)
+        {
             if(c->isAttachedToClient()) continue;
             foundNotBusy = true;
 
             sf::Packet acceptPacket{
-            buildPacketFromServer<PTFromServer::Accept>(c->getUid())};
+                buildPacketFromServer<PTFromServer::Accept>(c->getUid())};
             if(socket.send(acceptPacket, mClientIp, mClientPort) !=
-               sf::Socket::Done)
+                sf::Socket::Done)
             {
                 lo("Server") << "Error sending accept packet"
                              << "\n";
@@ -415,9 +435,10 @@ struct Server
     }
 
     inline void makeClientHandlerHandle(
-    Uid mUid, PTFromClient mType, sf::Packet mPacket)
+        Uid mUid, PTFromClient mType, sf::Packet mPacket)
     {
-        if(mUid >= clientHandlers.size()) {
+        if(mUid >= clientHandlers.size())
+        {
             if(verbose)
                 lo("Server") << "Tried to make ClientHandler #" << mUid
                              << " handle packet of type " << mType
@@ -434,7 +455,7 @@ struct Server
             clientHandlers[mUid]->handle(mType, mPacket);
     }
     inline void makeAllClientHandlersHandle(
-    PTFromClient mType, sf::Packet mPacket)
+        PTFromClient mType, sf::Packet mPacket)
     {
         for(auto& c : clientHandlers)
             if(c->isAttachedToClient()) c->handle(mType, mPacket);
@@ -455,8 +476,8 @@ int main()
     {
         string message;
         mP >> message;
-        sf::Packet msgPacket{
-        buildPacketFromServer<PTFromServer::FSMessage>(mCH.getUid(), message)};
+        sf::Packet msgPacket{buildPacketFromServer<PTFromServer::FSMessage>(
+            mCH.getUid(), message)};
         mCH.getServer().sendToAllClients(msgPacket);
     };
 
@@ -500,7 +521,8 @@ int main()
 
             Server s(sph, port);
 
-            while(true) {
+            while(true)
+            {
                 this_thread::sleep_for(1ms);
             }
 
@@ -516,12 +538,14 @@ int main()
 
             Client c(cph, ip, port);
 
-            while(true) {
+            while(true)
+            {
                 string input;
-                if(std::getline(std::cin, input)) {
+                if(std::getline(std::cin, input))
+                {
                     sf::Packet clientMsg{
-                    buildPacketFromClient<PTFromClient::FCMessage>(
-                    c.uid, input)};
+                        buildPacketFromClient<PTFromClient::FCMessage>(
+                            c.uid, input)};
                     c.send(clientMsg);
                 }
 
